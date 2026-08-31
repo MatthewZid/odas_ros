@@ -264,6 +264,20 @@ class SssSocketServer(SocketServer):
         else:
             return self._audio_frame_timestamp_queue.get()
 
+class PostfilterSocketServer(SssSocketServer):
+    """Bridge ODAS postfiltered audio (bleed-suppressed) to /sss_pf."""
+    def __init__(self, node, configuration, frame_id, audio_queue_size):
+        pf = configuration['sss']['postfiltered']
+        SocketServer.__init__(self, node, pf['interface']['port'])
+        # Node-clock stamps: do NOT share the raw/sss timestamp queue (single-consumer).
+        self._audio_frame_timestamp_queue = None
+        self._frame_id = frame_id
+        self._sss_nbits = pf['nBits']
+        self._sss_format = nbits_to_format(self._sss_nbits)
+        self._sss_channel_count = len(configuration['sst']['N_inactive'])
+        self._sss_sampling_frequency = pf['fS']
+        self._sss_frame_sample_count = pf['hopSize']
+        self._sss_pub = self._node.create_publisher(AudioFrame, 'sss_pf', audio_queue_size)
 
 class OdasServerNode(rclpy.node.Node):
     def __init__(self, node_name: str):
@@ -306,6 +320,12 @@ class OdasServerNode(rclpy.node.Node):
         else:
             self._sss_socket_server = None
 
+        if self._verify_postfilter_configuration():
+            self._pf_socket_server = PostfilterSocketServer(
+                self, self._configuration, frame_id, audio_queue_size)
+        else:
+            self._pf_socket_server = None
+
     def _load_configuration(self, configuration_path: str):
         with io.open(configuration_path) as f:
             return libconf.load(f)
@@ -344,6 +364,12 @@ class OdasServerNode(rclpy.node.Node):
 
         return True
 
+    def _verify_postfilter_configuration(self):
+        try:
+            return self._configuration['sss']['postfiltered']['interface']['type'] == 'socket'
+        except (KeyError, TypeError):
+            return False
+
     def run(self):
         if self._raw_socket_server:
             self._raw_socket_server.start()
@@ -357,7 +383,9 @@ class OdasServerNode(rclpy.node.Node):
         if self._sss_socket_server:
             self._sss_socket_server.start()
             self.get_logger().info("Sound Source Separation socket server started")
-
+        if self._pf_socket_server:
+            self._pf_socket_server.start()
+            self.get_logger().info("Sound Source Postfilter socket server started")
         executable_args = ["ros2",
                            "launch",
                            "odas_ros",
@@ -377,6 +405,8 @@ class OdasServerNode(rclpy.node.Node):
                 self._sst_socket_server.close()
             if self._sss_socket_server:
                 self._sss_socket_server.close()
+            if self._pf_socket_server:
+                self._pf_socket_server.close()
 
             odas_core_process.terminate()
             odas_core_process.wait()

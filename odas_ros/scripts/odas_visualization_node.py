@@ -9,8 +9,7 @@ import io
 import libconf
 
 import std_msgs.msg
-
-import sensor_msgs.point_cloud2 as pcl2  # type: ignore
+import sensor_msgs_py.point_cloud2 as pcl2
 from odas_ros_msgs.msg import OdasSstArrayStamped, OdasSslArrayStamped
 from  geometry_msgs.msg import PoseArray, Pose
 from sensor_msgs.msg import PointCloud2, PointField
