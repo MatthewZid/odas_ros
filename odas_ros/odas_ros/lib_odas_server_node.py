@@ -200,15 +200,23 @@ class SstSocketServer(JsonSocketServer):
         odas_sst_array_stamped_msg.header.stamp = self._node.get_clock().now().to_msg()
         odas_sst_array_stamped_msg.header.frame_id = self._frame_id
 
+        # for source in sst['src']:
+        #     if source['id'] != 0:
+        #         odas_sst = OdasSst()
+        #         odas_sst.id = source['id']
+        #         odas_sst.x = source['x']
+        #         odas_sst.y = source['y']
+        #         odas_sst.z = source['z']
+        #         odas_sst.activity = source['activity']
+        #         odas_sst_array_stamped_msg.sources.append(odas_sst)
         for source in sst['src']:
-            if source['id'] != 0:
-                odas_sst = OdasSst()
-                odas_sst.id = source['id']
-                odas_sst.x = source['x']
-                odas_sst.y = source['y']
-                odas_sst.z = source['z']
-                odas_sst.activity = source['activity']
-                odas_sst_array_stamped_msg.sources.append(odas_sst)
+            odas_sst = OdasSst()
+            odas_sst.id = source['id']
+            odas_sst.x = source['x']
+            odas_sst.y = source['y']
+            odas_sst.z = source['z']
+            odas_sst.activity = source['activity']
+            odas_sst_array_stamped_msg.sources.append(odas_sst)
 
         if rclpy.ok():
             self._sst_pub.publish(odas_sst_array_stamped_msg)
